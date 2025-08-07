@@ -2,12 +2,13 @@
 
 import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { TypewriterEffect } from "@/components/typewriter-effect"
 import { TopBar } from "@/components/top-bar"
 import { SideDock } from "@/components/side-dock"
 import { ChatMessage } from "@/components/chat-message"
 import { InputComponent } from "@/components/input-component"
+import { ScrollDownArrow } from "@/components/scroll-down-arrow"
+import { SuggestionGrid } from "@/components/suggestion-grid"
 
 interface Message {
   id: string
@@ -23,40 +24,48 @@ export default function LandingPage() {
   const [isDockOpen, setIsDockOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleSearch = useCallback(async () => {
-    if (stockQuery.trim()) {
-      // Add user message
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        content: stockQuery,
-        isUser: true,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, userMessage])
-      setIsLoading(true)
-
-      // Clear input
-      const query = stockQuery
-      setStockQuery("")
-
-      // Simulate API response
-      setTimeout(() => {
-        const systemMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: `Here's the analysis for ${query}:\n\n📈 **Current Price**: $175.43 (+2.34%)\n💭 **Sentiment**: Positive (0.65/1.0)\n📊 **Volume**: 45.2M\n🎯 **Recommendation**: BUY\n\nThe stock shows strong bullish momentum with positive market sentiment. Recent earnings beat expectations by 12%.`,
-          isUser: false,
+  const handleSearch = useCallback(
+    async (queryOverride?: string) => {
+      const query = queryOverride || stockQuery
+      if (query.trim()) {
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          content: query,
+          isUser: true,
           timestamp: new Date(),
         }
-        setMessages((prev) => [...prev, systemMessage])
-        setIsLoading(false)
-      }, 2000)
-    }
-  }, [stockQuery])
+
+        setMessages((prev) => [...prev, userMessage])
+        setIsLoading(true)
+
+        if (!queryOverride) {
+          setStockQuery("")
+        }
+
+        setTimeout(() => {
+          const systemMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: `Here's the analysis for ${query}:\n\n📈 **Current Price**: $175.43 (+2.34%)\n💭 **Sentiment**: Positive (0.65/1.0)\n📊 **Volume**: 45.2M\n🎯 **Recommendation**: BUY\n\nThe stock shows strong bullish momentum with positive market sentiment. Recent earnings beat expectations by 12%.`,
+            isUser: false,
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, systemMessage])
+          setIsLoading(false)
+        }, 2000)
+      }
+    },
+    [stockQuery],
+  )
+
+  const handleSuggestionClick = useCallback(
+    (query: string) => {
+      handleSearch(query)
+    },
+    [handleSearch],
+  )
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -127,18 +136,16 @@ export default function LandingPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {!hasMessages ? (
-          // Initial Welcome Screen with Centered Input - Absolute Center
-          <div className="fixed inset-0 flex items-center justify-center p-6">
-            <div className="w-full max-w-2xl space-y-8">
-              <div className="text-left space-y-4">
-                <h1 className="text-4xl font-bold text-foreground font-space-grotesk">Hello {userName || "Guest"}</h1>
-                <p className="text-2xl text-muted-foreground font-space-grotesk">
-                  What stock can I analyze for you today?
-                </p>
-              </div>
+          <>
+            <div className="relative flex flex-col items-center justify-center min-h-screen p-6 text-center">
+              <div className="w-full max-w-2xl space-y-6">
+                <div className="text-left space-y-2">
+                  <h1 className="text-3xl font-bold text-foreground font-space-grotesk">Hello {userName || "Guest"}</h1>
+                  <p className="text-xl text-muted-foreground font-space-grotesk">
+                    What stock can I analyze for you today?
+                  </p>
+                </div>
 
-              {/* Centered Input */}
-              <div className="flex justify-center">
                 <InputComponent
                   textareaRef={textareaRef}
                   stockQuery={stockQuery}
@@ -148,14 +155,17 @@ export default function LandingPage() {
                   handleSearch={handleSearch}
                   isListening={isListening}
                   isLoading={isLoading}
+                  className="mx-auto"
                 />
-              </div>
 
-              <div className="text-center">
-                <TypewriterEffect texts={suggestions} />
+                <div className="text-center h-10">
+                  <TypewriterEffect texts={suggestions} />
+                </div>
               </div>
+              <ScrollDownArrow />
             </div>
-          </div>
+            <SuggestionGrid onSuggestionClick={handleSuggestionClick} />
+          </>
         ) : (
           <>
             {/* Chat Messages - Flows under top bar */}
